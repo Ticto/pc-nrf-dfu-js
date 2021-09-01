@@ -55,8 +55,8 @@ const debug = Debug('dfu:noble');
  */
 
 export default class DfuTransportNoble extends DfuTransportPrn {
-    constructor(peripheral, packetReceiveNotification = 16) {
-        super(packetReceiveNotification);
+    constructor(peripheral, packetReceiveNotification = 16, printProgress = false, TUID) {
+        super(packetReceiveNotification, printProgress, TUID);
 
         this.peripheral = peripheral;
 
