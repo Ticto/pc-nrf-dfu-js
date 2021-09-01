@@ -14314,8 +14314,7 @@ class DfuAbstractTransport {
                 }
                 // Send next chunk
                 debug$2(`Sent ${end} bytes, not finished yet (until ${bytes.length})`);
-                progressBar.update(Math.round(end / bytes.length) * 100);
-                console.log('');
+                progressBar.update(Math.round((end / bytes.length) * 100));
                 const nextEnd = Math.min(bytes.length, end + chunkSize);
 
                 return this.createObject(type, nextEnd - end)
