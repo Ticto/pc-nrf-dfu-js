@@ -14190,8 +14190,6 @@ const debug$2 = require('debug')('dfu:transport');
 
 const cliProgress = require('cli-progress');
 
-// eslint-disable-next-line max-len
-const progressBar = new cliProgress.SingleBar({ stream: process.stdout }, cliProgress.Presets.legacy);
 
 /**
  * Implements the logic common to all transports, but not the transport itself.
@@ -14201,9 +14199,17 @@ const progressBar = new cliProgress.SingleBar({ stream: process.stdout }, cliPro
  * logic.
  */
 class DfuAbstractTransport {
-    constructor() {
+    constructor(printProgress = false, TUID) {
         if (this.constructor === DfuAbstractTransport) {
             throw new DfuError(ErrorCode.ERROR_CAN_NOT_INIT_ABSTRACT_TRANSPORT);
+        }
+        this.printProgress = printProgress;
+
+        if (this.printProgress) {
+            this.progressBar = new cliProgress.SingleBar({
+                stream: process.stdout,
+                format: `upgrade progress for ${TUID} [{bar}] {percentage}% | ETA: {eta}s | {value}/{total} |`,
+            });
         }
     }
 
@@ -14241,7 +14247,7 @@ class DfuAbstractTransport {
     // ("firmware image"/"data objects")
     sendPayload(type, bytes, resumeAtChunkBoundary = false) {
         debug$2(`Sending payload of type ${type}`);
-        progressBar.start(100, 0);
+        if (this.printProgress) this.progressBar.start(100, 0);
         return this.selectObject(type).then(([offset, crcSoFar, chunkSize]) => {
             if (offset !== 0) {
                 debug$2(`Offset is not zero (${offset}). Checking if graceful continuation is possible.`);
@@ -14308,14 +14314,17 @@ class DfuAbstractTransport {
             .then(() => this.executeObject())
             .then(() => {
                 if (end >= bytes.length) {
-                    progressBar.stop();
+                    if (this.printProgress) this.progressBar.stop();
                     debug$2(`Sent ${end} bytes, this payload type is finished`);
                     return Promise.resolve();
                 }
                 // Send next chunk
                 debug$2(`Sent ${end} bytes, not finished yet (until ${bytes.length})`);
-                progressBar.update(Math.round((end / bytes.length) * 100));
-                console.log('');
+                if (this.printProgress) {
+                    const progress = Math.round((end / bytes.length) * 100);
+                    this.progressBar.update(Math.round((end / bytes.length) * 100));
+                    if (progress % 10 === 0) { console.log(''); }
+                }
                 const nextEnd = Math.min(bytes.length, end + chunkSize);
 
                 return this.createObject(type, nextEnd - end)
@@ -14767,8 +14776,8 @@ const debug$4 = Debug('dfu:prntransport');
 class DfuTransportPrn extends DfuAbstractTransport {
     // The constructor takes the value for the PRN interval. It should be
     // provided by the concrete subclasses.
-    constructor(packetReceiveNotification = 16) {
-        super();
+    constructor(packetReceiveNotification = 16, printProgress = false, TUID) {
+        super(printProgress, TUID);
 
         if (this.constructor === DfuTransportPrn) {
             throw new DfuError(ErrorCode.ERROR_CAN_NOT_INIT_PRN_TRANSPORT);
@@ -15569,8 +15578,8 @@ const debug$8 = Debug('dfu:noble');
  */
 
 class DfuTransportNoble extends DfuTransportPrn {
-    constructor(peripheral, packetReceiveNotification = 16) {
-        super(packetReceiveNotification);
+    constructor(peripheral, packetReceiveNotification = 16, printProgress = false, TUID) {
+        super(packetReceiveNotification, printProgress, TUID);
 
         this.peripheral = peripheral;
 
