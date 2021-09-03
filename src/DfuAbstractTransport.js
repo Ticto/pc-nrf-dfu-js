@@ -64,7 +64,7 @@ export default class DfuAbstractTransport {
             this.progressBar = new cliProgress.SingleBar({
                 stream: process.stdout,
                 format: `upgrade progress for ${TUID} [{bar}] {percentage}% | ETA: {eta}s | {value}/{total} |`,
-            }, cliProgress.Presets.legacy);
+            });
         }
     }
 
@@ -176,8 +176,9 @@ export default class DfuAbstractTransport {
                 // Send next chunk
                 debug(`Sent ${end} bytes, not finished yet (until ${bytes.length})`);
                 if (this.printProgress) {
+                    const progress = Math.round((end / bytes.length) * 100);
                     this.progressBar.update(Math.round((end / bytes.length) * 100));
-                    console.log('');
+                    if (progress % 10 === 0) { console.log(''); }
                 }
                 const nextEnd = Math.min(bytes.length, end + chunkSize);
 
