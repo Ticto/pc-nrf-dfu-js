@@ -43,6 +43,9 @@ import { DfuError, ErrorCode } from './DfuError';
 
 const debug = require('debug')('dfu:transport');
 
+const cliProgress = require('cli-progress');
+
+
 /**
  * Implements the logic common to all transports, but not the transport itself.
  *
@@ -51,9 +54,17 @@ const debug = require('debug')('dfu:transport');
  * logic.
  */
 export default class DfuAbstractTransport {
-    constructor() {
+    constructor(printProgress = false, TUID) {
         if (this.constructor === DfuAbstractTransport) {
             throw new DfuError(ErrorCode.ERROR_CAN_NOT_INIT_ABSTRACT_TRANSPORT);
+        }
+        this.printProgress = printProgress;
+
+        if (this.printProgress) {
+            this.progressBar = new cliProgress.SingleBar({
+                stream: process.stdout,
+                format: `upgrade progress for ${TUID} [{bar}] {percentage}% | ETA: {eta}s | {value}/{total} |`,
+            });
         }
     }
 
@@ -91,6 +102,7 @@ export default class DfuAbstractTransport {
     // ("firmware image"/"data objects")
     sendPayload(type, bytes, resumeAtChunkBoundary = false) {
         debug(`Sending payload of type ${type}`);
+        if (this.printProgress) this.progressBar.start(100, 0);
         return this.selectObject(type).then(([offset, crcSoFar, chunkSize]) => {
             if (offset !== 0) {
                 debug(`Offset is not zero (${offset}). Checking if graceful continuation is possible.`);
@@ -157,11 +169,17 @@ export default class DfuAbstractTransport {
             .then(() => this.executeObject())
             .then(() => {
                 if (end >= bytes.length) {
+                    if (this.printProgress) this.progressBar.stop();
                     debug(`Sent ${end} bytes, this payload type is finished`);
                     return Promise.resolve();
                 }
                 // Send next chunk
                 debug(`Sent ${end} bytes, not finished yet (until ${bytes.length})`);
+                if (this.printProgress) {
+                    const progress = Math.round((end / bytes.length) * 100);
+                    this.progressBar.update(Math.round((end / bytes.length) * 100));
+                    if (progress % 10 === 0) { console.log(''); }
+                }
                 const nextEnd = Math.min(bytes.length, end + chunkSize);
 
                 return this.createObject(type, nextEnd - end)

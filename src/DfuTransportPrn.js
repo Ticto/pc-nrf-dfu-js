@@ -60,8 +60,8 @@ const debug = Debug('dfu:prntransport');
 export default class DfuTransportPrn extends DfuAbstractTransport {
     // The constructor takes the value for the PRN interval. It should be
     // provided by the concrete subclasses.
-    constructor(packetReceiveNotification = 16) {
-        super();
+    constructor(packetReceiveNotification = 16, printProgress = false, TUID) {
+        super(printProgress, TUID);
 
         if (this.constructor === DfuTransportPrn) {
             throw new DfuError(ErrorCode.ERROR_CAN_NOT_INIT_PRN_TRANSPORT);
