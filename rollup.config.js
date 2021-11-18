@@ -14,7 +14,6 @@ export default {
         sourcemap: true,
     },
     plugins: [
-        eslint(),
         resolve({ preferBuiltins: true }),
         builtins(),
         commonjs({
