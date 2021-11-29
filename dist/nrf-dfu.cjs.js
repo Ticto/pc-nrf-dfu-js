@@ -14131,7 +14131,7 @@ class DfuAbstractTransport {
                 debug$2(`Sent ${end} bytes, not finished yet (until ${bytes.length})`);
                 if (this.printProgress) {
                     const progress = Math.round((end / bytes.length) * 100);
-                    const progressNext = Math.round((end / (bytes.length + chunkSize)) * 100);
+                    const progressNext = Math.round(((end + chunkSize) / bytes.length) * 100);
                     if (Math.round(progress / 10) !== Math.round(progressNext / 10)) { 
                         this.logWriter(`[${"==".repeat(progress/10)}${"--".repeat((100-progress)/10)}] ${progress}%`);
                     }
