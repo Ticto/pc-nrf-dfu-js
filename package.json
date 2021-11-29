@@ -34,8 +34,5 @@
     "testMatch": [
       "**/test/?(*.)+(test).js?(x)"
     ]
-  },
-  "dependencies": {
-    "cli-progress": "^3.9.0"
   }
 }

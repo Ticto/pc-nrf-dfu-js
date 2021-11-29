@@ -43,8 +43,6 @@ import { DfuError, ErrorCode } from './DfuError';
 
 const debug = require('debug')('dfu:transport');
 
-const cliProgress = require('cli-progress');
-
 
 /**
  * Implements the logic common to all transports, but not the transport itself.
@@ -54,17 +52,12 @@ const cliProgress = require('cli-progress');
  * logic.
  */
 export default class DfuAbstractTransport {
-    constructor(printProgress = false, TUID) {
+    constructor(printProgress = false, logWriter) {
+        this.printProgress = printProgress;
+        this.logWriter = logWriter;
+
         if (this.constructor === DfuAbstractTransport) {
             throw new DfuError(ErrorCode.ERROR_CAN_NOT_INIT_ABSTRACT_TRANSPORT);
-        }
-        this.printProgress = printProgress;
-
-        if (this.printProgress) {
-            this.progressBar = new cliProgress.SingleBar({
-                stream: process.stdout,
-                format: `upgrade progress for ${TUID} [{bar}] {percentage}% | ETA: {eta}s | {value}/{total} |`,
-            });
         }
     }
 
@@ -177,8 +170,10 @@ export default class DfuAbstractTransport {
                 debug(`Sent ${end} bytes, not finished yet (until ${bytes.length})`);
                 if (this.printProgress) {
                     const progress = Math.round((end / bytes.length) * 100);
-                    this.progressBar.update(Math.round((end / bytes.length) * 100));
-                    if (progress % 10 === 0) { console.log(''); }
+                    const progressNext = Math.round((end / (bytes.length + chunkSize)) * 100);
+                    if (Math.round(progress / 10) !== Math.round(progressNext / 10)) { 
+                        this.logWriter(`[${"==".repeat(progress/10)}${"--".repeat((100-progress)/10)}] ${progress}%`);
+                    }
                 }
                 const nextEnd = Math.min(bytes.length, end + chunkSize);
 
