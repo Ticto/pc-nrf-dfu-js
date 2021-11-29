@@ -14058,7 +14058,6 @@ class DfuAbstractTransport {
     // ("firmware image"/"data objects")
     sendPayload(type, bytes, resumeAtChunkBoundary = false) {
         debug$2(`Sending payload of type ${type}`);
-        if (this.printProgress) this.progressBar.start(100, 0);
         return this.selectObject(type).then(([offset, crcSoFar, chunkSize]) => {
             if (offset !== 0) {
                 debug$2(`Offset is not zero (${offset}). Checking if graceful continuation is possible.`);
@@ -14125,7 +14124,6 @@ class DfuAbstractTransport {
             .then(() => this.executeObject())
             .then(() => {
                 if (end >= bytes.length) {
-                    if (this.printProgress) this.progressBar.stop();
                     debug$2(`Sent ${end} bytes, this payload type is finished`);
                     return Promise.resolve();
                 }
