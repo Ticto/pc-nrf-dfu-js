@@ -15535,12 +15535,123 @@ class DfuTransportNoble extends DfuTransportPrn {
     }
 }
 
+const debug$9 = Debug('dfu:tictoNoble');
+
+/**
+ * Ticto noble DFU transport.
+ *
+ */
+
+class DfuTransportTictoNoble extends DfuTransportPrn {
+  constructor(tictoPin, packetReceiveNotification = 16, printProgress = false, logWriter = (t) => console.log(t)) {
+    super(packetReceiveNotification, printProgress, logWriter);
+
+    this.dfuControlCharacteristic = null;
+    this.dfuPacketCharacteristic = null;
+
+    this.tictoPin = tictoPin;
+
+    // Hard-coded BLE MTU
+    this.mtu = 20;
+  }
+
+  // Given a command (including opcode), perform SLIP encoding and send it
+  // through the wire.
+  writeCommand(bytes) {
+    // Cast the Uint8Array info a Buffer so it works on nodejs v6
+    const bytesBuf = Buffer.from(bytes);
+    debug$9(' ctrl --> ', bytesBuf);
+
+    return new Promise((res, rej) => {
+      setTimeout(() => {
+        this.dfuControlCharacteristic.write(bytesBuf, false, (err) => {
+          if (err) {
+            rej(err);
+          } else {
+            res();
+          }
+        });
+      }, 100);
+    });
+  }
+
+  // Given some payload bytes, pack them into a 0x08 command.
+  // The length of the bytes is guaranteed to be under this.mtu thanks
+  // to the DfuTransportPrn functionality.
+  async writeData(bytes) {
+    // Cast the Uint8Array info a Buffer so it works on nodejs v6
+    const bytesBuf = Buffer.from(bytes);
+    debug$9(' data --> ', bytesBuf);
+
+    return new Promise(async (res, rej) => {
+      this.dfuPacketCharacteristic.write(bytesBuf, true, (err) => {
+        if (err) {
+          rej(err);
+        } else {
+          res();
+        }
+      });
+      //             }, 50);
+    });
+  }
+
+  // Opens the port, sets the PRN, requests the MTU.
+  // Returns a Promise when initialization is done.
+  ready() {
+    if (this.readyPromise) {
+      return this.readyPromise;
+    }
+
+    this.readyPromise = Promise.race([
+      this.tictoPin.connect(),
+      new Promise((res, rej) => {
+        setTimeout(() => rej(new DfuError(ErrorCode.ERROR_TIMEOUT_FETCHING_CHARACTERISTICS)), 5000);
+      }),
+    ])
+      .then(() => {
+        this.dfuControlCharacteristic = this.tictoPin.control;
+        this.dfuPacketCharacteristic = this.tictoPin.packet;
+
+        // Subscribe to notifications on the control characteristic
+        debug$9('control characteristic:', this.dfuControlCharacteristic.uuid, this.dfuControlCharacteristic.properties);
+
+        return new Promise((res, rej) => {
+          debug$9('Subscribing to notifications on the ctrl characteristic');
+          this.dfuControlCharacteristic.subscribe((err) => {
+            if (err) {
+              return rej(new DfuError(ErrorCode.ERROR_CAN_NOT_SUBSCRIBE_CHANGES));
+            }
+            this.dfuControlCharacteristic.on('data', (data) => {
+              debug$9(' recv <-- ', data);
+              return this.onData(data);
+            });
+            return res();
+          });
+        });
+      })
+      .then(() =>
+        this.writeCommand(
+          new Uint8Array([
+            0x02, // "Set PRN" opcode
+            this.prn & 0xff, // PRN LSB
+            (this.prn >> 8) & 0xff, // PRN MSB
+          ])
+        )
+          .then(this.read.bind(this))
+          .then(this.assertPacket(0x02, 0))
+      );
+
+    return this.readyPromise;
+  }
+}
+
 exports.DfuError = DfuError;
 exports.DfuOperation = DfuOperation;
 exports.DfuTransportNoble = DfuTransportNoble;
 exports.DfuTransportSerial = DfuTransportSerial;
 exports.DfuTransportSink = DfuTransportSink;
 exports.DfuTransportSlowSerial = DfuTransportSlowSerial;
+exports.DfuTransportTictoNoble = DfuTransportTictoNoble;
 exports.DfuTransportUsbSerial = DfuTransportUsbSerial;
 exports.DfuUpdates = DfuUpdates;
 exports.ErrorCode = ErrorCode;
